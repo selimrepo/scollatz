@@ -75,4 +75,7 @@ mod tests {
   assert_eq!(r.next_u64(),13109570281517897720);
  }
  #[test] fn cpp_state_round_trip(){let mut a=Mt19937_64::seeded(42);for _ in 0..319{a.next_u64();}let s=a.to_cpp_state();let mut b=Mt19937_64::from_cpp_state(&s).unwrap();assert_eq!(a.next_u64(),b.next_u64());}
+ #[test] fn gcc_reference_uniform_sequence(){let mut r=Mt19937_64::seeded(42);let expected=[755155533,639031394,752145201,136272684,903268967,94068312,574570305,372887700];for v in expected{assert_eq!(r.uniform(1,1_000_000_000),v);}}
+ #[test] fn bernoulli_consumes_one_engine_value_at_endpoints(){let mut a=Mt19937_64::seeded(42);assert!(!a.bernoulli(0.0));let mut b=Mt19937_64::seeded(42);b.next_u64();assert_eq!(a.next_u64(),b.next_u64());}
+
 }
