@@ -171,6 +171,6 @@ if(is.size()>1&&(gen+1)%migration_interval==0){
     std::cout<<"migration generation="<<gen<<" diversity="<<diversity<<" interval="<<migration_interval<<" migrants_per_island="<<migration_count<<"\n";
 }
 }
-if(gen+1<o.generations)for(auto&island:is){auto&p=island.p;std::vector<Person>next;size_t elite=std::min(o.elite,p.size()-1);for(size_t n=0;n<elite;++n)next.push_back(p[n]);while(next.size()<p.size()){auto&a=tournament(p,island.rng,o.tournament);auto&b=tournament(p,island.rng,o.tournament);U mask=island.rng();U child=(a.gene&mask)|(b.gene&~mask);next.push_back({mutate(child,o,island.rng),{}});}p.swap(next);}
+for(auto&island:is){auto&p=island.p;std::vector<Person>next;size_t elite=std::min(o.elite,p.size()-1);for(size_t n=0;n<elite;++n)next.push_back(p[n]);while(next.size()<p.size()){auto&a=tournament(p,island.rng,o.tournament);auto&b=tournament(p,island.rng,o.tournament);U mask=island.rng();U child=(a.gene&mask)|(b.gene&~mask);next.push_back({mutate(child,o,island.rng),{}});}p.swap(next);}
 double sec=std::chrono::duration<double>(std::chrono::steady_clock::now()-t0).count();for(size_t n=records.size()-is.size();n<records.size();++n)records[n].seconds=sec;std::cout<<"generation="<<gen<<" best="<<best.gene<<" stopping_time="<<best.fit.steps<<" backend="<<o.backend<<" islands="<<o.islands<<"\n";checkpoint(o,is,gen+1,seed);}
 outputs(o,records,seed);std::cout<<"best_candidate="<<best.gene<<" stopping_time="<<best.fit.steps<<" peak="<<best.fit.peak<<" seed="<<seed<<"\n";return best.fit.done?0:1;}
