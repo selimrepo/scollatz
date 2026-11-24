@@ -65,5 +65,5 @@ mod tests {
     use super::*;
     #[test] fn known_stopping_times(){assert_eq!(evaluate(1,100).steps,0);assert_eq!(evaluate(3,100).steps,7);assert_eq!(evaluate(27,1000).steps,111);}
     #[test] fn step_limit_is_reported(){assert_eq!(evaluate(27,1).status,2);}
-    #[test] fn range_edges(){assert_eq!(evaluate(2,10).status,0);assert_eq!(evaluate(0,10).status,0);}
+    #[test] fn range_edges(){assert_eq!(evaluate(2,10).status,0);assert_eq!(evaluate(0,10).status,2);}
 }
