@@ -154,7 +154,8 @@ Result run_opencl(const Options& o) {
     clGetPlatformIDs(platform_count, platforms.data(), nullptr);
     cl_device_id device = nullptr;
     // Prefer a discrete GPU, but accept CPU OpenCL devices (e.g. PoCL) for CI.
-    for (auto type : {CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ALL}) {
+    const cl_device_type device_types[] = {static_cast<cl_device_type>(CL_DEVICE_TYPE_GPU), CL_DEVICE_TYPE_ALL};
+    for (cl_device_type type : device_types) {
         for (auto p : platforms) {
             if (clGetDeviceIDs(p, type, 1, &device, nullptr) == CL_SUCCESS) break;
             device = nullptr;
