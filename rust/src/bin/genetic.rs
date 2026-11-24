@@ -46,7 +46,7 @@ fn read_checkpoint(path:&str,islands:&mut[Island],o:&Opt)->Result<(usize,U),Stri
  let raw=fs::read_to_string(path).map_err(|e|format!("cannot read checkpoint: {e}"))?;
  let c:CppCheckpoint=serde_json::from_str(&raw).map_err(|e|format!("invalid C++ checkpoint: {e}"))?;
  if c.version!=1||c.rng.len()!=islands.len()||c.populations.len()!=islands.len(){return Err("unsupported checkpoint schema or island count".into());}
- for i in 0..islands.len(){if c.populations[i].len()!=islands[i].people.len(){return Err("checkpoint population dimensions do not match --population/--islands".into());}islands[i].rng=Mt19937_64::from_cpp_state(&c.rng[i])?;islands[i].people=c.populations[i].iter().map(|&gene|{if gene<o.lo||gene>o.hi{return Err("checkpoint gene outside requested range".to_string());}Ok(Person{gene,fit:Fit::default()})}).collect::<Result<Vec<_>,String>>()?;}
+ for i in 0..islands.len(){let expected=o.population/o.islands+usize::from(i<o.population%o.islands);if c.populations[i].len()!=expected{return Err("checkpoint population dimensions do not match --population/--islands".into());}islands[i].rng=Mt19937_64::from_cpp_state(&c.rng[i])?;islands[i].people=c.populations[i].iter().map(|&gene|{if gene<o.lo||gene>o.hi{return Err("checkpoint gene outside requested range".to_string());}Ok(Person{gene,fit:Fit::default()})}).collect::<Result<Vec<_>,String>>()?;}
  Ok((c.generation,c.seed))
 }
 fn outputs(o:&Opt,records:&[Record],seed:U)->Result<(),String>{
