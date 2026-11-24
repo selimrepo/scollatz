@@ -74,7 +74,7 @@ fn main(){
  for gen in first..o.generations{
   let t=Instant::now();
   for (idx,island) in islands.iter_mut().enumerate(){
-   let mut local=o.clone_for_threads(threads_per_island);
+   let mut local=o.clone_for_threads(threads_per_island);\n   local.backend=active_backend.clone();
    #[cfg(feature="opencl")]
    let result=evaluate_backend(&mut island.people,&local,gpus[idx].as_mut());
    #[cfg(not(feature="opencl"))]
