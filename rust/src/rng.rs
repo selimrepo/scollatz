@@ -58,8 +58,8 @@ impl Mt19937_64 {
     }
     // libstdc++ bernoulli_distribution uses generate_canonical<double, 53>.
     pub fn bernoulli(&mut self,p:f64)->bool {
-        if p<=0.0{return false;} if p>=1.0{return true;}
         let x=self.next_u64();
+        if p<=0.0{return false;} if p>=1.0{return true;}
         let unit=(x as f64)*(1.0/18446744073709551616.0);
         unit<p
     }
