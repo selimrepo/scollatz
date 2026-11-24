@@ -153,11 +153,15 @@ Result run_opencl(const Options& o) {
     std::vector<cl_platform_id> platforms(platform_count);
     clGetPlatformIDs(platform_count, platforms.data(), nullptr);
     cl_device_id device = nullptr;
-    for (auto p : platforms) {
-        if (clGetDeviceIDs(p, CL_DEVICE_TYPE_GPU, 1, &device, nullptr) == CL_SUCCESS) break;
-        device = nullptr;
+    // Prefer a discrete GPU, but accept CPU OpenCL devices (e.g. PoCL) for CI.
+    for (auto type : {CL_DEVICE_TYPE_GPU, CL_DEVICE_TYPE_ALL}) {
+        for (auto p : platforms) {
+            if (clGetDeviceIDs(p, type, 1, &device, nullptr) == CL_SUCCESS) break;
+            device = nullptr;
+        }
+        if (device) break;
     }
-    if (!device) throw std::runtime_error("No OpenCL GPU device found");
+    if (!device) throw std::runtime_error("No OpenCL device found");
     char device_name[256]{};
     clGetDeviceInfo(device, CL_DEVICE_NAME, sizeof(device_name), device_name, nullptr);
     cl_context context = clCreateContext(nullptr, 1, &device, nullptr, nullptr, &err);
