@@ -29,3 +29,8 @@ jobs:
           ./build/scollatz-ga --backend cpu --population 64 --generations 2 --islands 4 --min 1 --max 100000 --threads 2 --seed 42 --checkpoint build/resume.chk --csv build/first.csv --json build/first.json
           ./build/scollatz-ga --backend cpu --population 64 --generations 4 --islands 4 --min 1 --max 100000 --threads 2 --resume build/resume.chk --checkpoint build/resume.chk --csv build/resumed.csv --json build/resumed.json
           python3 -c "import json; d=json.load(open('build/resumed.json')); assert d['results'] and all('stopping_time' in x for x in d['results'])"
+
+      - name: Per-island OpenCL queues and persistent buffers
+        run: ./build/scollatz-ga --backend opencl --population 128 --generations 4 --islands 4 --min 1 --max 100000 --seed 7 --migration-interval 2 --migration-count 2 --checkpoint build/island.chk --csv build/island.csv --json build/island.json
+      - name: Adaptive migration opt-out
+        run: ./build/scollatz-ga --backend cpu --population 64 --generations 3 --islands 4 --min 1 --max 100000 --seed 7 --no-adaptive-migration --checkpoint build/no-adapt.chk --csv build/no-adapt.csv --json build/no-adapt.json
