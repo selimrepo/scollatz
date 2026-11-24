@@ -52,9 +52,7 @@ fn read_checkpoint(path:&str,islands:&mut[Island],o:&Opt)->Result<(usize,U),Stri
  Ok((c.generation,c.seed))
 }
 fn outputs(o:&Opt,records:&[Record],seed:U)->Result<(),String>{
- if !o.csv.is_empty(){let mut s="generation,island,candidate,stopping_time,peak,converged,elapsed_seconds
-".to_string();for r in records{s.push_str(&format!("{},{},{},{},{},{},{}
-",r.generation,r.island,r.candidate,r.stopping_time,r.peak,r.converged,r.elapsed_seconds));}fs::write(&o.csv,s).map_err(|e|e.to_string())?;}
+ if !o.csv.is_empty(){let mut s="generation,island,candidate,stopping_time,peak,converged,elapsed_seconds\n".to_string();for r in records{s.push_str(&format!("{},{},{},{},{},{},{}\n",r.generation,r.island,r.candidate,r.stopping_time,r.peak,r.converged,r.elapsed_seconds));}fs::write(&o.csv,s).map_err(|e|e.to_string())?;}
  if !o.json.is_empty(){#[derive(Serialize)]struct Out<'a>{seed:U,results:&'a[Record]}fs::write(&o.json,serde_json::to_vec_pretty(&Out{seed,results:records}).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;}Ok(())
 }
 fn main(){
