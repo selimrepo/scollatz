@@ -23,3 +23,9 @@ jobs:
         run: ./build/scollatz --start 1 --end 10000 --backend opencl --chunk 1024
       - name: Genetic algorithm smoke test
         run: ./build/scollatz-ga --population 64 --generations 5 --min 1 --max 100000 --threads 2 --seed 42
+
+      - name: Checkpoint and resume smoke test
+        run: |
+          ./build/scollatz-ga --backend cpu --population 64 --generations 2 --islands 4 --min 1 --max 100000 --threads 2 --seed 42 --checkpoint build/resume.chk --csv build/first.csv --json build/first.json
+          ./build/scollatz-ga --backend cpu --population 64 --generations 4 --islands 4 --min 1 --max 100000 --threads 2 --resume build/resume.chk --checkpoint build/resume.chk --csv build/resumed.csv --json build/resumed.json
+          python3 -c "import json; d=json.load(open('build/resumed.json')); assert d['results'] and all('stopping_time' in x for x in d['results'])"
