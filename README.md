@@ -27,3 +27,25 @@ Debian/Ubuntu OpenCL + PoCL: `sudo apt-get install cmake g++ ocl-icd-opencl-dev 
 - Other controls: `--population`, `--generations`, `--elite`, `--tournament`, `--mutation`, `--threads`, `--min`, `--max`, `--max-steps`, `--seed`.
 
 Fitness is exact stopping time with peak as tie-breaker, but the evolutionary search is heuristic and is not a proof of the Collatz conjecture. OpenCL accelerates candidate fitness; each island has its own queue and persistent buffers. Genetic operators and checkpoint I/O remain on CPU.
+
+## Rust implementation
+
+The Rust binaries are implemented under `rust/` and retain the C++ executables as a reference implementation.
+
+- `scollatz`: multi-threaded CPU range scanning and OpenCL range scanning (`auto`, `cpu`, `opencl`).
+- `scollatz-ga`: island-model GA with CPU, OpenCL and hybrid CPU/GPU fitness evaluation, migration and adaptive migration.
+- Checkpoints use the C++ version-1 JSON format, including serialized `std::mt19937_64` state, so C++ and Rust can resume one another's checkpoints.
+- The C++ and Rust GA implementations use the same explicitly defined MT19937-64, multiply-high integer sampling, and Bernoulli draw algorithm, independent of the C++ standard-library distribution implementation. CI compares full seeded checkpoints and both cross-language resume directions.
+
+### Build and test
+
+Install an OpenCL ICD/SDK and GPU driver (or PoCL for CPU-based OpenCL testing), then:
+
+```sh
+cargo test --manifest-path rust/Cargo.toml --all-targets
+cargo build --release --manifest-path rust/Cargo.toml --bins
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz -- --start 1 --end 1000000 --backend auto --threads 8
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-ga -- --backend hybrid --population 2048 --generations 500 --islands 8 --threads 16 --seed 42
+```
+
+Use `--backend cpu` to force CPU, `--backend opencl` to require OpenCL, and `--backend hybrid` to split each island's fitness batch between CPU and OpenCL. `auto` prefers OpenCL and falls back to CPU if no OpenCL device is available.

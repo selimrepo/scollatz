@@ -1,0 +1,23 @@
+[package]
+name = "scollatz"
+version = "1.2.0"
+edition = "2021"
+rust-version = "1.75"
+
+[dependencies]
+rayon = "1.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ocl = { version = "0.19", optional = true }
+
+[features]
+default = ["opencl"]
+opencl = ["dep:ocl"]
+
+[[bin]]
+name = "scollatz"
+path = "src/main.rs"
+
+[[bin]]
+name = "scollatz-ga"
+path = "src/bin/genetic.rs"
