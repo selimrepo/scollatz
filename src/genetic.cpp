@@ -1,3 +1,4 @@
+#include <exception>
 #include <algorithm>
 #include <atomic>
 #include <chrono>
