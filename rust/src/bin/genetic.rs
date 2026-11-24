@@ -14,8 +14,6 @@ struct Island { people:Vec<Person>,rng:Mt19937_64 }
 struct Record { generation:usize,island:usize,candidate:U,stopping_time:U,peak:U,converged:bool,elapsed_seconds:f64 }
 #[derive(Deserialize)]
 struct CppCheckpoint { version:u32,generation:usize,seed:U,rng:Vec<String>,populations:Vec<Vec<U>> }
-#[derive(Serialize)]
-struct Checkpoint<'a>{version:u32,generation:usize,seed:U,rng:Vec<String>,populations:Vec<Vec<U>>,#[serde(skip)] _marker:std::marker::PhantomData<&'a ()>}
 impl Opt { fn clone_for_threads(&self,threads:usize)->Self { Self { population:self.population,generations:self.generations,elite:self.elite,tournament:self.tournament,islands:self.islands,migrate_every:self.migrate_every,migrate_count:self.migrate_count,threads,mutation:self.mutation,limit:self.limit,lo:self.lo,hi:self.hi,seed:self.seed,backend:self.backend.clone(),checkpoint:self.checkpoint.clone(),resume:self.resume.clone(),csv:self.csv.clone(),json:self.json.clone(),adaptive:self.adaptive } } }\nstruct Opt { population:usize,generations:usize,elite:usize,tournament:usize,islands:usize,migrate_every:usize,migrate_count:usize,threads:usize,mutation:f64,limit:U,lo:U,hi:U,seed:U,backend:String,checkpoint:String,resume:String,csv:String,json:String,adaptive:bool }
 fn options()->Result<Opt,String>{
  let mut o=Opt{population:512,generations:200,elite:8,tournament:5,islands:4,migrate_every:10,migrate_count:1,threads:std::thread::available_parallelism().map_or(1,usize::from),mutation:0.04,limit:1_000_000,lo:1,hi:1_000_000_000,seed:0,backend:"auto".into(),checkpoint:"scollatz.chk".into(),resume:String::new(),csv:"scollatz.csv".into(),json:"scollatz.json".into(),adaptive:true};
@@ -64,18 +62,19 @@ fn main(){
  else{for (i,island) in islands.iter_mut().enumerate(){let n=o.population/o.islands+usize::from(i<o.population%o.islands);island.people=(0..n).map(|_|Person{gene:island.rng.uniform(o.lo,o.hi),fit:Fit::default()}).collect();}}
  let mut active_backend=o.backend.clone();
  #[cfg(feature="opencl")]
- let mut gpus:Vec<Option<opencl::Gpu>>=if active_backend=="cpu"{vec![None;islands.len()]}else{
+ let mut gpus:Vec<Option<opencl::Gpu>>=if active_backend=="cpu"{std::iter::repeat_with(||None).take(islands.len()).collect()}else{
    let mut all=Vec::with_capacity(islands.len());let mut failure=None;
    for island in &islands{match opencl::Gpu::new(island.people.len()){Ok(g)=>{if all.is_empty(){println!("OpenCL device: {}",g.name());}all.push(Some(g));},Err(e)=>{failure=Some(e);break;}}}
-   if let Some(e)=failure{if active_backend=="opencl"{eprintln!("{e}");process::exit(3);}eprintln!("OpenCL unavailable ({e}); falling back to CPU.");active_backend="cpu".into();vec![None;islands.len()]}else{all}
+   if let Some(e)=failure{if active_backend=="opencl"{eprintln!("{e}");process::exit(3);}eprintln!("OpenCL unavailable ({e}); falling back to CPU.");active_backend="cpu".into();std::iter::repeat_with(||None).take(islands.len()).collect()}else{all}
  };
  #[cfg(not(feature="opencl"))]
  let mut active_backend={if active_backend=="opencl"{eprintln!("OpenCL support not compiled; rebuild with --features opencl.");process::exit(3);}if active_backend=="auto"||active_backend=="hybrid"{"cpu".to_string()}else{active_backend}};
  let mut records:Vec<Record>=Vec::new();let mut best=Person::default();let mut have=false;
+ let threads_per_island=(o.threads/islands.len()).max(1);
  for gen in first..o.generations{
   let t=Instant::now();
   for (idx,island) in islands.iter_mut().enumerate(){
-   let mut local=o.clone_for_threads((o.threads/islands.len()).max(1));
+   let mut local=o.clone_for_threads(threads_per_island);
    #[cfg(feature="opencl")]
    let result=evaluate_backend(&mut island.people,&local,gpus[idx].as_mut());
    #[cfg(not(feature="opencl"))]
