@@ -42,7 +42,7 @@ fn write_checkpoint(path:&str,generation:usize,seed:U,islands:&[Island])->Result
  let rng=islands.iter().map(|i|i.rng.to_cpp_state()).collect::<Vec<_>>();
  let populations:Vec<Vec<U>>=islands.iter().map(|i|i.people.iter().map(|p|p.gene).collect()).collect();
  let value=serde_json::json!({"version":1,"generation":generation,"seed":seed,"rng":rng,"populations":populations});
- fs::write(path,serde_json::to_vec_pretty(&value).map_err(|e|e.to_string())?).map_err(|e|format!("checkpoint write failed: {e}"))
+ fs::write(path,serde_json::to_vec(&value).map_err(|e|e.to_string())?).map_err(|e|format!("checkpoint write failed: {e}"))
 }
 fn read_checkpoint(path:&str,islands:&mut[Island],o:&Opt)->Result<(usize,U),String>{
  let raw=fs::read_to_string(path).map_err(|e|format!("cannot read checkpoint: {e}"))?;
