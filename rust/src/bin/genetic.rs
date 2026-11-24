@@ -40,7 +40,7 @@ fn evaluate_backend(p:&mut[Person],o:&Opt,gpu:Option<&mut opencl::Gpu>)->Result<
 fn evaluate_backend(p:&mut[Person],o:&Opt)->Result<(),String>{if o.backend=="opencl"{return Err("Rust OpenCL support not compiled; rebuild with --features opencl".into());}evaluate_cpu(p,o);Ok(())}
 fn write_checkpoint(path:&str,generation:usize,seed:U,islands:&[Island])->Result<(),String>{
  let rng=islands.iter().map(|i|i.rng.to_cpp_state()).collect::<Vec<_>>();
- let populations=islands.iter().map(|i|i.people.iter().map(|p|p.gene).collect()).collect();
+ let populations:Vec<Vec<U>>=islands.iter().map(|i|i.people.iter().map(|p|p.gene).collect()).collect();
  let value=serde_json::json!({"version":1,"generation":generation,"seed":seed,"rng":rng,"populations":populations});
  fs::write(path,serde_json::to_vec_pretty(&value).map_err(|e|e.to_string())?).map_err(|e|format!("checkpoint write failed: {e}"))
 }
