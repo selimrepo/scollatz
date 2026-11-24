@@ -143,13 +143,17 @@ if(o.backend!="cpu"){try{for(size_t k=0;k<is.size();++k)gpus[k]=std::make_unique
 #else
 if(o.backend=="opencl"){std::cerr<<"OpenCL support not built\n";return 3;}
 #endif
-std::vector<Rec>records;Person best{};bool have=false;for(size_t gen=first;gen<o.generations;++gen){auto t0=std::chrono::steady_clock::now();for(size_t k=0;k<is.size();++k){evaluate(is[k].p,o,
+std::vector<Rec>records;Person best{};bool have=false;for(size_t gen=first;gen<o.generations;++gen){auto t0=std::chrono::steady_clock::now();
+std::vector<std::thread>island_workers;std::vector<std::exception_ptr>island_errors(is.size());std::vector<Opt>island_options(is.size(),o);
+for(size_t k=0;k<is.size();++k){island_options[k].threads=std::max(1u,o.threads/static_cast<unsigned>(is.size()));island_workers.emplace_back([&,k]{try{evaluate(is[k].p,island_options[k],
 #ifdef SCOLLATZ_HAS_OPENCL
 gpus[k].get()
 #else
 nullptr
 #endif
-);auto&p=is[k].p;std::sort(p.begin(),p.end(),better);if(!have||better(p[0],best)){best=p[0];have=true;}records.push_back({gen,k,p[0],0});}
+);std::sort(is[k].p.begin(),is[k].p.end(),better);}catch(...){island_errors[k]=std::current_exception();}});}
+for(auto&worker:island_workers)worker.join();for(const auto&error:island_errors)if(error)std::rethrow_exception(error);
+for(size_t k=0;k<is.size();++k){auto&p=is[k].p;if(!have||better(p[0],best)){best=p[0];have=true;}records.push_back({gen,k,p[0],0});}
 {
 size_t migration_interval=o.migrate_every,migration_count=o.migrate_count;
 double diversity=0.0;
