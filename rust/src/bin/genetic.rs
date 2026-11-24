@@ -1,4 +1,5 @@
-#[path="../rng.rs"] mod rng;\n#[cfg(feature="opencl")] #[path="../opencl.rs"] mod opencl;
+#[path="../rng.rs"] mod rng;
+#[cfg(feature="opencl")] #[path="../opencl.rs"] mod opencl;
 use rng::Mt19937_64;
 use rayon::prelude::*;
 use serde::{Deserialize,Serialize};
@@ -14,7 +15,8 @@ struct Island { people:Vec<Person>,rng:Mt19937_64 }
 struct Record { generation:usize,island:usize,candidate:U,stopping_time:U,peak:U,converged:bool,elapsed_seconds:f64 }
 #[derive(Deserialize)]
 struct CppCheckpoint { version:u32,generation:usize,seed:U,rng:Vec<String>,populations:Vec<Vec<U>> }
-impl Opt { fn clone_for_threads(&self,threads:usize)->Self { Self { population:self.population,generations:self.generations,elite:self.elite,tournament:self.tournament,islands:self.islands,migrate_every:self.migrate_every,migrate_count:self.migrate_count,threads,mutation:self.mutation,limit:self.limit,lo:self.lo,hi:self.hi,seed:self.seed,backend:self.backend.clone(),checkpoint:self.checkpoint.clone(),resume:self.resume.clone(),csv:self.csv.clone(),json:self.json.clone(),adaptive:self.adaptive } } }\nstruct Opt { population:usize,generations:usize,elite:usize,tournament:usize,islands:usize,migrate_every:usize,migrate_count:usize,threads:usize,mutation:f64,limit:U,lo:U,hi:U,seed:U,backend:String,checkpoint:String,resume:String,csv:String,json:String,adaptive:bool }
+impl Opt { fn clone_for_threads(&self,threads:usize)->Self { Self { population:self.population,generations:self.generations,elite:self.elite,tournament:self.tournament,islands:self.islands,migrate_every:self.migrate_every,migrate_count:self.migrate_count,threads,mutation:self.mutation,limit:self.limit,lo:self.lo,hi:self.hi,seed:self.seed,backend:self.backend.clone(),checkpoint:self.checkpoint.clone(),resume:self.resume.clone(),csv:self.csv.clone(),json:self.json.clone(),adaptive:self.adaptive } } }
+struct Opt { population:usize,generations:usize,elite:usize,tournament:usize,islands:usize,migrate_every:usize,migrate_count:usize,threads:usize,mutation:f64,limit:U,lo:U,hi:U,seed:U,backend:String,checkpoint:String,resume:String,csv:String,json:String,adaptive:bool }
 fn options()->Result<Opt,String>{
  let mut o=Opt{population:512,generations:200,elite:8,tournament:5,islands:4,migrate_every:10,migrate_count:1,threads:std::thread::available_parallelism().map_or(1,usize::from),mutation:0.04,limit:1_000_000,lo:1,hi:1_000_000_000,seed:0,backend:"auto".into(),checkpoint:"scollatz.chk".into(),resume:String::new(),csv:"scollatz.csv".into(),json:"scollatz.json".into(),adaptive:true};
  let mut a=env::args().skip(1);while let Some(k)=a.next(){if k=="--help"||k=="-h"{println!("scollatz-ga --backend auto|cpu|opencl|hybrid --population N --generations N --islands N --threads N --min N --max N --max-steps N --seed N --migration-interval N --migration-count N --no-adaptive-migration --checkpoint FILE --resume FILE --csv FILE --json FILE");process::exit(0);}if k=="--no-adaptive-migration"{o.adaptive=false;continue;}let v=a.next().ok_or_else(||format!("missing value for {k}"))?;match k.as_str(){"--population"=>o.population=v.parse().map_err(|_|"population")?,"--generations"=>o.generations=v.parse().map_err(|_|"generations")?,"--elite"=>o.elite=v.parse().map_err(|_|"elite")?,"--tournament"=>o.tournament=v.parse().map_err(|_|"tournament")?,"--islands"=>o.islands=v.parse().map_err(|_|"islands")?,"--migration-interval"=>o.migrate_every=v.parse().map_err(|_|"migration interval")?,"--migration-count"=>o.migrate_count=v.parse().map_err(|_|"migration count")?,"--threads"=>o.threads=v.parse().map_err(|_|"threads")?,"--mutation"=>o.mutation=v.parse().map_err(|_|"mutation")?,"--max-steps"=>o.limit=v.parse().map_err(|_|"max steps")?,"--min"=>o.lo=v.parse().map_err(|_|"min")?,"--max"=>o.hi=v.parse().map_err(|_|"max")?,"--seed"=>o.seed=v.parse().map_err(|_|"seed")?,"--backend"=>o.backend=v,"--checkpoint"=>o.checkpoint=v,"--resume"=>o.resume=v,"--csv"=>o.csv=v,"--json"=>o.json=v,_=>return Err(format!("unknown option {k}"))}}
@@ -50,7 +52,9 @@ fn read_checkpoint(path:&str,islands:&mut[Island],o:&Opt)->Result<(usize,U),Stri
  Ok((c.generation,c.seed))
 }
 fn outputs(o:&Opt,records:&[Record],seed:U)->Result<(),String>{
- if !o.csv.is_empty(){let mut s="generation,island,candidate,stopping_time,peak,converged,elapsed_seconds\n".to_string();for r in records{s.push_str(&format!("{},{},{},{},{},{},{}\n",r.generation,r.island,r.candidate,r.stopping_time,r.peak,r.converged,r.elapsed_seconds));}fs::write(&o.csv,s).map_err(|e|e.to_string())?;}
+ if !o.csv.is_empty(){let mut s="generation,island,candidate,stopping_time,peak,converged,elapsed_seconds
+".to_string();for r in records{s.push_str(&format!("{},{},{},{},{},{},{}
+",r.generation,r.island,r.candidate,r.stopping_time,r.peak,r.converged,r.elapsed_seconds));}fs::write(&o.csv,s).map_err(|e|e.to_string())?;}
  if !o.json.is_empty(){#[derive(Serialize)]struct Out<'a>{seed:U,results:&'a[Record]}fs::write(&o.json,serde_json::to_vec_pretty(&Out{seed,results:records}).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;}Ok(())
 }
 fn main(){
@@ -74,7 +78,8 @@ fn main(){
  for gen in first..o.generations{
   let t=Instant::now();
   for (idx,island) in islands.iter_mut().enumerate(){
-   let mut local=o.clone_for_threads(threads_per_island);\n   local.backend=active_backend.clone();
+   let mut local=o.clone_for_threads(threads_per_island);
+   local.backend=active_backend.clone();
    #[cfg(feature="opencl")]
    let result=evaluate_backend(&mut island.people,&local,gpus[idx].as_mut());
    #[cfg(not(feature="opencl"))]
