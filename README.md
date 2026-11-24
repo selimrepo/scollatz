@@ -27,3 +27,17 @@ Debian/Ubuntu OpenCL + PoCL: `sudo apt-get install cmake g++ ocl-icd-opencl-dev 
 - Other controls: `--population`, `--generations`, `--elite`, `--tournament`, `--mutation`, `--threads`, `--min`, `--max`, `--max-steps`, `--seed`.
 
 Fitness is exact stopping time with peak as tie-breaker, but the evolutionary search is heuristic and is not a proof of the Collatz conjecture. OpenCL accelerates candidate fitness; each island has its own queue and persistent buffers. Genetic operators and checkpoint I/O remain on CPU.
+
+## Rust port (in progress)
+
+A Rust implementation is being developed under `rust/` alongside the C++ reference implementation. It currently provides the CPU range scanner and a CPU island-model GA with migration, adaptive migration, checkpointing, and CSV/JSON generation.
+
+Build and test it with:
+```sh
+cargo test --manifest-path rust/Cargo.toml --all-targets
+cargo build --release --manifest-path rust/Cargo.toml --bins
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz -- --start 1 --end 1000000 --backend cpu --threads 8
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-ga -- --backend cpu --population 2048 --generations 500 --islands 8 --threads 16 --seed 42
+```
+
+**Parity status:** this is an additive port, not yet a drop-in replacement. The C++ implementation remains the feature-complete reference. Rust currently implements CPU execution; Rust OpenCL/hybrid execution, C++ checkpoint compatibility (including serialized MT19937-64 state), and exact cross-language seeded GA replay are not yet implemented. Do not remove the C++ targets until those parity items have dedicated tests.
