@@ -32,8 +32,27 @@ bool parse(int ac,char**av,Opt&o){for(int i=1;i<ac;++i){std::string a=av[i];if(a
 return o.population>=8&&o.generations&&o.islands&&o.islands<=o.population&&o.elite&&o.elite<o.population/o.islands&&o.tournament&&o.limit&&o.lo&&o.hi>=o.lo&&o.migrate_every&&o.migrate_count&&(o.backend=="auto"||o.backend=="cpu"||o.backend=="opencl"||o.backend=="hybrid");}
 Fit fitness(U n,U lim){U s=0,p=n;while(n!=1&&s<lim){if(!(n&1))n>>=1;else{if(n>(UINT64_MAX-1)/3)return{s,p,false};n=n*3+1;}++s;p=std::max(p,n);}return{s,p,n==1};}
 bool better(const Person&a,const Person&b){if(a.fit.done!=b.fit.done)return a.fit.done;if(a.fit.steps!=b.fit.steps)return a.fit.steps>b.fit.steps;if(a.fit.peak!=b.fit.peak)return a.fit.peak>b.fit.peak;return a.gene<b.gene;}
-U random_u(std::mt19937_64&r,U a,U b){return std::uniform_int_distribution<U>(a,b)(r);}
-U mutate(U x,const Opt&o,std::mt19937_64&r){std::bernoulli_distribution f(o.mutation);for(unsigned b=0;b<64;++b)if(f(r))x^=U(1)<<b;if(f(r)){U d=random_u(r,0,std::max<U>(1,(o.hi-o.lo)/32));if(f(r))x=x>d?x-d:o.lo;else if(UINT64_MAX-x>=d)x+=d;}return std::clamp(x,o.lo,o.hi);}
+U multiply_high(U a,U b){
+    const U a0=static_cast<std::uint32_t>(a),a1=a>>32U;
+    const U b0=static_cast<std::uint32_t>(b),b1=b>>32U;
+    const U w0=a0*b0;
+    const U t=a1*b0+(w0>>32U);
+    U w1=t&0xffffffffULL;
+    const U w2=t>>32U;
+    w1+=a0*b1;
+    return a1*b1+w2+(w1>>32U);
+}
+U random_u(std::mt19937_64&r,U a,U b){
+    const U range=b-a+1U;
+    if(range==0)return r();
+    for(;;){const U x=r();const U low=x*range;if(low<range){const U threshold=(U(0)-range)%range;if(low<threshold)continue;}return a+multiply_high(x,range);}
+}
+bool random_bool(std::mt19937_64&r,double probability){
+    const U bits=r();
+    const double unit=static_cast<double>(bits)*(1.0/18446744073709551616.0);
+    return unit<probability;
+}
+U mutate(U x,const Opt&o,std::mt19937_64&r){for(unsigned b=0;b<64;++b)if(random_bool(r,o.mutation))x^=U(1)<<b;if(random_bool(r,o.mutation)){U d=random_u(r,0,std::max<U>(1,(o.hi-o.lo)/32));if(random_bool(r,o.mutation))x=x>d?x-d:o.lo;else if(UINT64_MAX-x>=d)x+=d;}return std::clamp(x,o.lo,o.hi);}
 const Person& tournament(const std::vector<Person>&p,std::mt19937_64&r,size_t n){size_t b=random_u(r,0,p.size()-1);while(--n){size_t j=random_u(r,0,p.size()-1);if(better(p[j],p[b]))b=j;}return p[b];}
 void cpu(std::vector<Person>&p,size_t b,size_t e,const Opt&o){std::atomic<size_t>next{b};std::vector<std::thread>w;unsigned n=std::min<unsigned>(o.threads,(unsigned)(e-b));for(unsigned t=0;t<n;++t)w.emplace_back([&]{for(;;){size_t i=next++;if(i>=e)break;p[i].fit=fitness(p[i].gene,o.limit);}});for(auto&t:w)t.join();}
 #ifdef SCOLLATZ_HAS_OPENCL
