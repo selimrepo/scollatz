@@ -35,7 +35,7 @@ The Rust binaries are implemented under `rust/` and retain the C++ executables a
 - `scollatz`: multi-threaded CPU range scanning and OpenCL range scanning (`auto`, `cpu`, `opencl`).
 - `scollatz-ga`: island-model GA with CPU, OpenCL and hybrid CPU/GPU fitness evaluation, migration and adaptive migration.
 - Checkpoints use the C++ version-1 JSON format, including serialized `std::mt19937_64` state, so C++ and Rust can resume one another's checkpoints.
-- The Rust RNG reproduces the libstdc++ `mt19937_64`, 64-bit `uniform_int_distribution`, and `bernoulli_distribution` draw sequence for seeded GA parity. CI compares full seeded checkpoints and both cross-language resume directions.
+- The C++ and Rust GA implementations use the same explicitly defined MT19937-64, multiply-high integer sampling, and Bernoulli draw algorithm, independent of the C++ standard-library distribution implementation. CI compares full seeded checkpoints and both cross-language resume directions.
 
 ### Build and test
 
