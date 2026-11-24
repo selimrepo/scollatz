@@ -58,3 +58,14 @@ This program scans independent starting values; it does not claim a proof of the
 | `--threads N` | hardware concurrency | CPU worker count |
 | `--chunk N` | 4096 | Work allocation / GPU batch size |
 | `--max-steps N` | 10,000,000 | Maximum iterations per trajectory |
+
+
+## Genetic algorithm search
+
+`scollatz-ga` is a heuristic evolutionary search for starting values with high Collatz stopping times. It uses a population of 64-bit genomes, tournament selection, uniform bitwise crossover, elitism, adaptive bit-flip mutation and occasional arithmetic mutations. Fitness is evaluated in parallel across CPU threads.
+
+```sh
+./build/scollatz-ga --population 1024 --generations 500 --min 1 --max 1000000000000 --threads 16 --mutation 0.04 --elite 32 --tournament 5 --seed 42
+```
+
+The GA is a search heuristic, not an exhaustive proof or a replacement for the exact scanner. Its result depends on the seed, search interval, population and generation budget. The reported fitness is the exact stopping time and peak for each candidate that completes within the configured iteration cap.
