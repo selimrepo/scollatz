@@ -80,11 +80,7 @@ fn main() {
     let mut r=ResultSet::default();
     for p in partial {r.tested+=p.tested;r.completed+=p.completed;r.overflow+=p.overflow;r.capped+=p.capped;if p.max_steps>r.max_steps{r.max_steps=p.max_steps;r.max_steps_start=p.max_steps_start;}if p.max_peak>r.max_peak{r.max_peak=p.max_peak;r.max_peak_start=p.max_peak_start;}}
     let sec=start.elapsed().as_secs_f64();
-    println!("Backend: {}
-Tested: {} | completed: {} | overflow: {} | step-limit: {}
-Longest stopping time: {} (start {})
-Highest peak: {} (start {})
-Elapsed: {:.3} s",if gpu_result.is_some() {"OpenCL GPU".to_string()} else {format!("CPU ({} threads)",o.threads)},r.tested,r.completed,r.overflow,r.capped,r.max_steps,r.max_steps_start,r.max_peak,r.max_peak_start,sec);
+    println!("Backend: {}\nTested: {} | completed: {} | overflow: {} | step-limit: {}\nLongest stopping time: {} (start {})\nHighest peak: {} (start {})\nElapsed: {:.3} s",if gpu_result.is_some() {"OpenCL GPU".to_string()} else {format!("CPU ({} threads)",o.threads)},r.tested,r.completed,r.overflow,r.capped,r.max_steps,r.max_steps_start,r.max_peak,r.max_peak_start,sec);
     if sec>0.0 {println!("Throughput: {:.0} starts/s",r.tested as f64/sec);}
     if r.capped>0 || r.overflow>0 {process::exit(1);}
 }
