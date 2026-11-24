@@ -1,4 +1,4 @@
-use rayon::prelude::*;
+use rayon::prelude::*;\n#[cfg(feature="opencl")] mod opencl;
 use serde::Serialize;
 use std::{env, process, time::Instant};
 
@@ -47,16 +47,39 @@ fn merge(r:&mut ResultSet,start:u64,s:Sample) {
 }
 fn main() {
     let o=match parse(){Ok(x)=>x,Err(e)=>{eprintln!("Invalid arguments: {e}. Use --help.");process::exit(2)}};
-    if o.backend=="opencl" { eprintln!("This Rust build was compiled without the optional OpenCL feature; rebuild with --features opencl.");process::exit(3); }
+    
     let start=Instant::now();
     let count=o.end-o.start+1;
     let chunks:Vec<(u64,u64)>=(0..count.div_ceil(o.chunk)).map(|i|{let b=o.start+i*o.chunk;(b,o.chunk.min(o.end-b+1))}).collect();
     let pool=rayon::ThreadPoolBuilder::new().num_threads(o.threads).build().expect("thread pool");
-    let partial:Vec<ResultSet>=pool.install(||chunks.par_iter().map(|&(b,n)|{let mut r=ResultSet::default();for x in b..b+n{merge(&mut r,x,evaluate(x,o.max_steps));}r}).collect());
+    let use_gpu = o.backend=="opencl" || o.backend=="auto";
+    #[cfg(feature="opencl")]
+    let gpu_result = if use_gpu {
+        match opencl::Gpu::new(o.chunk.min(count) as usize) {
+            Ok(mut gpu) => {
+                println!("OpenCL device: {}",gpu.name());
+                let mut total=ResultSet::default();
+                let mut begin=o.start;
+                while begin<=o.end {
+                    let n=o.chunk.min(o.end-begin+1) as usize;
+                    match gpu.range(begin,n,o.max_steps) {
+                        Ok(batch)=>for (i,(steps,peak,status)) in batch.into_iter().enumerate(){merge(&mut total,begin+i as u64,Sample{steps,peak,status:status as u8});},
+                        Err(e)=>{if o.backend=="opencl"{eprintln!("{e}");process::exit(3);}eprintln!("OpenCL failed ({e}); restarting scan on CPU.");total=ResultSet::default();break;}
+                    }
+                    if n as u64==o.end-begin+1{break;}begin+=n as u64;
+                }
+                if total.tested==count {Some(total)} else {None}
+            },
+            Err(e)=>{if o.backend=="opencl"{eprintln!("{e}");process::exit(3);}eprintln!("OpenCL unavailable ({e}); using CPU.");None}
+        }
+    } else {None};
+    #[cfg(not(feature="opencl"))]
+    let gpu_result:Option<ResultSet> = { if o.backend=="opencl" {eprintln!("OpenCL support not compiled; rebuild with --features opencl.");process::exit(3);} None };
+    let partial:Vec<ResultSet>=if let Some(result)=gpu_result {vec![result]} else {pool.install(||chunks.par_iter().map(|&(b,n)|{let mut r=ResultSet::default();for x in b..b+n{merge(&mut r,x,evaluate(x,o.max_steps));}r}).collect())};
     let mut r=ResultSet::default();
     for p in partial {r.tested+=p.tested;r.completed+=p.completed;r.overflow+=p.overflow;r.capped+=p.capped;if p.max_steps>r.max_steps{r.max_steps=p.max_steps;r.max_steps_start=p.max_steps_start;}if p.max_peak>r.max_peak{r.max_peak=p.max_peak;r.max_peak_start=p.max_peak_start;}}
     let sec=start.elapsed().as_secs_f64();
-    println!("Backend: CPU ({} threads)\nTested: {} | completed: {} | overflow: {} | step-limit: {}\nLongest stopping time: {} (start {})\nHighest peak: {} (start {})\nElapsed: {:.3} s",o.threads,r.tested,r.completed,r.overflow,r.capped,r.max_steps,r.max_steps_start,r.max_peak,r.max_peak_start,sec);
+    println!("Backend: {}\nTested: {} | completed: {} | overflow: {} | step-limit: {}\nLongest stopping time: {} (start {})\nHighest peak: {} (start {})\nElapsed: {:.3} s",if gpu_result.is_some() {"OpenCL GPU".to_string()} else {format!("CPU ({} threads)",o.threads)},r.tested,r.completed,r.overflow,r.capped,r.max_steps,r.max_steps_start,r.max_peak,r.max_peak_start,sec);
     if sec>0.0 {println!("Throughput: {:.0} starts/s",r.tested as f64/sec);}
     if r.capped>0 || r.overflow>0 {process::exit(1);}
 }
