@@ -13,7 +13,7 @@ if(SCOLLATZ_ENABLE_OPENCL)
   find_package(OpenCL QUIET)
 endif()
 
-add_executable(scollatz src/main.cpp)
+add_executable(scollatz src/main.cpp)\nadd_executable(scollatz-ga src/genetic.cpp)\ntarget_link_libraries(scollatz-ga PRIVATE Threads::Threads)\ntarget_compile_options(scollatz-ga PRIVATE\n  $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Wconversion;-Wshadow>\n)
 target_link_libraries(scollatz PRIVATE Threads::Threads)
 target_compile_options(scollatz PRIVATE
   $<$<CXX_COMPILER_ID:GNU,Clang>:-Wall;-Wextra;-Wpedantic;-Wconversion;-Wshadow>
