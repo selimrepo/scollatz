@@ -47,8 +47,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Test Rust implementation (including OpenCL)
         run: cargo test --manifest-path rust/Cargo.toml --all-targets
-      - name: Exact parity classes and orbit-growth research engine
-        run: cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --depth 12 --show-classes 8
+      - name: Adaptive proof search and certificate round-trip
+        run: |
+          cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --max-depth 10 --node-limit 100000 --base-limit 2000000 --certificate rust/target/research-certificate.json
+          cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --verify rust/target/research-certificate.json --base-limit 2000000
       - name: Complex branch dynamics smoke test
         run: cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-complex -- --word 110 --real 3 --imag 1 --repeats 4
       - name: Rust scanner CPU smoke test
