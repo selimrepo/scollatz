@@ -29,3 +29,7 @@ path = "src/bin/genetic.rs"
 [[bin]]
 name = "scollatz-complex"
 path = "src/bin/complex.rs"
+
+[[bin]]
+name = "scollatz-research"
+path = "src/bin/research.rs"
