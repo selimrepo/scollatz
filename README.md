@@ -78,53 +78,48 @@ compositions, multipliers, fixed points, and candidate periodic itineraries with
 misrepresenting numerical evidence as a proof.
 
 
-## Exact parity-class and orbit-growth research engine
+## Adaptive proof research and independently verifiable certificates
 
-`scollatz-research` is not just a short-cycle enumerator. At depth `k`, it
-constructs the complete partition of the positive integers into the
-`2^k` accelerated parity classes modulo `2^k`. Every binary parity word of
-length `k` is lifted to its unique residue class, using exact integer
-arithmetic.
+The research binary now performs an adaptive parity-cylinder search rather than
+only enumerating fixed-length words:
 
-For each class, the engine derives the exact block map
+- It starts from the root and recursively refines only classes for which no
+  strict-descent inequality has yet been found.
+- Within each current class, it tests every prefix block length from 1 through
+  the class depth. The block map is lifted to the whole deeper residue class,
+  so a certificate proves descent for every sufficiently large member of that
+  class, not just for its representative.
+- A prefix-free set of certified and unresolved leaves is emitted. Its exact
+  Kraft sum is checked against the full binary tree, ensuring the leaves cover
+  all positive integers without overlap.
+- For a fully certified partition, it computes the largest class threshold.
+  If the entire finite interval below that threshold is within `--base-limit`,
+  it checks every base integer by exact accelerated iteration. Together, these
+  facts form a strong-induction certificate for termination.
+- JSON certificates can be independently re-read and checked with `--verify`.
+  The verifier recomputes residues, parity words, affine slopes, strict
+  inequalities, threshold minimality, partition coverage, and any claimed
+  finite base interval. Unresolved leaves are never interpreted as divergence.
 
-```
-n = r + q*2^k
-T^k(n) = T^k(r) + 3^o*q
-```
-
-where `o` is the number of odd branches in the word. It then checks the exact
-difference
-
-```
-T^k(n) - n = (3^o - 2^k)*q + (T^k(r) - r)
-```
-
-This gives a rigorous classwise certificate whenever `3^o < 2^k`: an exact
-threshold `q_min` (and corresponding first positive integer in the class)
-above which every member strictly decreases after a block of `k` accelerated
-steps. Classes without contraction at this depth are reported as
-`not-certified-by-this-block`; that does **not** imply their orbits diverge.
-A finer residue partition or a different block length may yield a descent
-certificate.
-
-Run:
+Commands:
 
 ```sh
 cargo test --manifest-path rust/Cargo.toml --all-targets
-cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --depth 16
-cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --depth 12 --show-classes 20
+
+# Adaptive refinement; cap the search tree to control resource use
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- \
+  --max-depth 16 --node-limit 1000000 --base-limit 2000000 \
+  --certificate collatz-proof.json
+
+# Independently verify the generated certificate
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- \
+  --verify collatz-proof.json --base-limit 2000000
 ```
 
-The engine uses `BigInt` and `BigRational` for exact coefficients, residues,
-multipliers, and thresholds. It verifies every generated class against its
-parity word and checks the affine block formula on additional members of that
-class. Tests also check that the residues form a complete, duplicate-free
-partition at small depths and that reported descent thresholds imply strict
-decrease.
-
-**Proof boundary:** this is a complete finite-depth partition and a collection
-of exact classwise inequalities, not a proof of the Collatz conjecture. A
-global proof still needs to handle every residue class at every required scale
-and show that all positive orbits eventually reach 1; the classes that do not
-contract under one selected block cannot simply be discarded.
+A certificate with unresolved leaves is a partial research result, not a proof.
+A complete induction certificate is reported only if every leaf has a strict
+descent certificate and every positive integer below the global threshold has
+been checked to reach 1. The verifier rechecks these conditions; no floating
+point, heuristic search, or genetic algorithm result is accepted as proof.
+The search may hit its node budget or leave unresolved classes. That outcome
+is reported explicitly and does not imply an infinite orbit exists.
