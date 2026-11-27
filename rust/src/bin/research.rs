@@ -1,6 +1,6 @@
 use num_bigint::BigInt;
 use num_rational::BigRational;
-use num_traits::{One, Zero, Signed, ToPrimitive};
+use num_traits::{One, Zero};
 use std::{env, process};
 
 #[derive(Clone, Debug)]
@@ -168,8 +168,15 @@ mod tests {
 
     #[test]
     fn rejects_non_integer_fixed_points() {
-        let f = Affine::from_word(&[1, 0]);
-        assert!(f.fixed_point().unwrap().is_integer() == false);
-        assert!(exact_cycle_candidate(&[1, 0], &f).is_none());
+        let f = Affine::from_word(&[1, 0, 0]);
+        assert!(!f.fixed_point().unwrap().is_integer());
+        assert!(exact_cycle_candidate(&[1, 0, 0], &f).is_none());
+    }
+
+    #[test]
+    fn validates_the_known_one_two_cycle_exactly() {
+        let word = [1, 0];
+        let f = Affine::from_word(&word);
+        assert_eq!(exact_cycle_candidate(&word, &f), Some(BigInt::from(1u8)));
     }
 }
