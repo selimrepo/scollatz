@@ -254,12 +254,16 @@ fn verify_certificate(c: &ProofCertificate, base_limit: u64) -> Result<(), Strin
         if affine.odd_count != item.odd_steps { return Err("odd-step count mismatch".into()); }
         let slope = &affine.a * (BigInt::one() << (word.len() - item.block_length));
         let gap = &modulus - slope;
-        if gap <= BigInt::zero() { return Err("certificate does not have a contracting block slope".into()); }
         let delta = affine.apply(&residue) - &residue;
+        if gap < BigInt::zero() || (gap.is_zero() && delta >= BigInt::zero()) {
+            return Err("certificate does not have a strict-descent block inequality".into());
+        }
         let q = parse_big(&item.q_min, "q_min")?;
         let first = parse_big(&item.first_positive_n, "first_positive_n")?;
         if q < BigInt::zero() { return Err("negative q_min".into()); }
-        let min_q = if delta < BigInt::zero() { BigInt::zero() } else { delta / &gap + BigInt::one() };
+        let min_q = if delta < BigInt::zero() { BigInt::zero() }
+            else if gap.is_zero() { BigInt::zero() }
+            else { delta / &gap + BigInt::one() };
         let min_q = if residue.is_zero() && min_q.is_zero() { BigInt::one() } else { min_q };
         if q != min_q || first != &residue + &q * &modulus { return Err("descent threshold mismatch".into()); }
         let n = &residue + &q * &modulus;
