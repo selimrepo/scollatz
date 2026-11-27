@@ -92,6 +92,13 @@ only enumerating fixed-length words:
 - A prefix-free set of certified and unresolved leaves is emitted. Its exact
   Kraft sum is checked against the full binary tree, ensuring the leaves cover
   all positive integers without overlap.
+- Unresolved leaves receive exact block-growth diagnostics: strictly increasing
+  blocks with a threshold, or neutral blocks whose affine action is exactly
+  the identity on that residue class. These are one-block statements, not a
+  claim that an entire orbit escapes to infinity.
+- Exact integer fixed points of affine parity words are checked against their
+  full parity itinerary and return map. Valid periodic-orbit witnesses are
+  stored separately from class-wide descent certificates.
 - For a fully certified partition, it computes the largest class threshold.
   If the entire finite interval below that threshold is within `--base-limit`,
   it checks every base integer by exact accelerated iteration. Together, these
@@ -119,7 +126,8 @@ cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- \
 A certificate with unresolved leaves is a partial research result, not a proof.
 A complete induction certificate is reported only if every leaf has a strict
 descent certificate and every positive integer below the global threshold has
-been checked to reach 1. The verifier rechecks these conditions; no floating
-point, heuristic search, or genetic algorithm result is accepted as proof.
+been checked to reach 1. The verifier rechecks these conditions, growth inequalities, neutral blocks,
+and periodic return witnesses; no floating point, heuristic search, or genetic
+algorithm result is accepted as proof.
 The search may hit its node budget or leave unresolved classes. That outcome
 is reported explicitly and does not imply an infinite orbit exists.
