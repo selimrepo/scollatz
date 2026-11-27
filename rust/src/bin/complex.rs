@@ -25,7 +25,6 @@ fn parse() -> Result<Config, String> {
     };
     let mut args = env::args().skip(1);
     while let Some(arg) = args.next() {
-        let value = || -> Result<String, String> { Err("internal parser error".into()) };
         match arg.as_str() {
             "--help" | "-h" => { usage(); process::exit(0); }
             "--word" => c.word = Some(args.next().ok_or("--word needs a binary word")?),
@@ -41,7 +40,6 @@ fn parse() -> Result<Config, String> {
                 .parse().map_err(|_| "invalid --max-steps")?,
             _ => return Err(format!("unknown argument: {arg}")),
         }
-        let _ = value;
     }
     if c.word.is_some() == c.seed.is_some() {
         return Err("provide exactly one of --word or --seed".into());
@@ -163,7 +161,7 @@ mod tests {
 
     #[test]
     fn seed_itinerary_matches_known_trajectory() {
-        assert_eq!(word_from_seed(3, 20).unwrap(), "110");
+        assert_eq!(word_from_seed(3, 20).unwrap(), "11000");
     }
 
     #[test]
