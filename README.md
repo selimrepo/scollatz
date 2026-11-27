@@ -49,3 +49,30 @@ cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-ga -- --backe
 ```
 
 Use `--backend cpu` to force CPU, `--backend opencl` to require OpenCL, and `--backend hybrid` to split each island's fitness batch between CPU and OpenCL. `auto` prefers OpenCL and falls back to CPU if no OpenCL device is available.
+
+
+## Complex-analytic branch explorer
+
+The Rust workspace also provides `scollatz-complex`, a research tool for studying the
+complex affine extensions of the accelerated Collatz branches:
+
+- even branch: `E(z) = z/2`
+- odd branch: `O(z) = (3z + 1)/2`
+
+A finite symbolic parity word (for example `10100`) determines a holomorphic affine
+composition `F(z) = a*z + b`. The tool reports its complex orbit, multiplier, fixed
+point (when defined), and local attracting/repelling classification. Supply either a
+parity word directly or an integer seed whose accelerated trajectory reaches 1.
+
+```sh
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-complex -- --word 10100 --real 2.5 --imag 1.25 --repeats 20
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-complex -- --seed 27 --repeats 10
+cargo test --manifest-path rust/Cargo.toml --all-targets
+```
+
+**Mathematical limitation:** parity is defined for integers, not arbitrary complex
+numbers. This program extends each integer branch holomorphically after fixing a
+symbolic parity itinerary; it does not define a unique global complex Collatz map and
+does not prove the Collatz conjecture. Its purpose is to investigate branch
+compositions, multipliers, fixed points, and candidate periodic itineraries without
+misrepresenting numerical evidence as a proof.
