@@ -464,4 +464,24 @@ mod tests {
         let cert=find_descent(&w,&c.residue,w.len()).unwrap();
         assert_eq!(cert.first_positive_n,"5");
     }
+    #[test] fn detects_known_two_cycle_with_exact_fixed_point() {
+        let word = parse_word("10").unwrap();
+        let witness = periodic_witness(&word).unwrap();
+        assert_eq!(witness.value, "1");
+        assert_eq!(witness.block_length, 2);
+    }
+
+    #[test] fn growth_witness_threshold_is_exact() {
+        let word = parse_word("11111").unwrap();
+        let class = ParityClass::from_word(&word);
+        let (growth, _) = growth_analysis(&word, &class.residue, word.len());
+        for witness in growth {
+            let q = parse_big(&witness.q_min, "q").unwrap();
+            for offset in 0..8u8 {
+                let n = &class.residue + (&q + BigInt::from(offset)) * &class.modulus;
+                assert!(run_steps(&n, witness.block_length) > n);
+            }
+        }
+    }
+
 }
