@@ -217,11 +217,15 @@ fn verify_certificate(c: &ProofCertificate, base_limit: u64) -> Result<(), Strin
     let all_certified = c.unresolved_classes.is_empty();
     let max_first = c.descent_classes.iter().map(|x| parse_big(&x.first_positive_n, "first_positive_n"))
         .collect::<Result<Vec<_>, _>>()?.into_iter().max().unwrap_or_else(BigInt::one);
-    if c.complete_induction_certificate != (all_certified && c.base_verified_up_to.as_ref().is_some_and(|v| parse_big(v, "base_verified_up_to").ok() == Some(&max_first - 1))) {
+    let expected_base_bound = &max_first - BigInt::one();
+    let claimed_base_matches = c.base_verified_up_to.as_ref()
+        .is_some_and(|v| parse_big(v, "base_verified_up_to").ok() == Some(expected_base_bound.clone()));
+    if c.complete_induction_certificate != (all_certified && claimed_base_matches) {
         return Err("complete-induction flag/base bound is inconsistent".into());
     }
     if let Some(bound_text) = &c.base_verified_up_to {
         let bound = parse_big(bound_text, "base_verified_up_to")?;
+        if bound < BigInt::zero() { return Err("negative base verification bound".into()); }
         if bound > BigInt::from(base_limit) { return Err(format!("base verification bound exceeds verifier limit {base_limit}")); }
         let end = bound.to_u64_digits().1.first().copied().unwrap_or(0);
         for n in 1..=end {
