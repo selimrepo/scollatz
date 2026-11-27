@@ -78,32 +78,53 @@ compositions, multipliers, fixed points, and candidate periodic itineraries with
 misrepresenting numerical evidence as a proof.
 
 
-## Advanced mathematical research engine
+## Exact parity-class and orbit-growth research engine
 
-The Rust workspace includes `scollatz-research`, which complements the floating-point
-complex branch explorer with exact arithmetic:
+`scollatz-research` is not just a short-cycle enumerator. At depth `k`, it
+constructs the complete partition of the positive integers into the
+`2^k` accelerated parity classes modulo `2^k`. Every binary parity word of
+length `k` is lifted to its unique residue class, using exact integer
+arithmetic.
 
-- **Complex dynamics / affine dynamics:** each fixed symbolic itinerary is an affine
-  holomorphic map on ℂ. Its multiplier is exactly `3^o / 2^k` and its fixed point
-  is represented as a rational number embedded in ℂ. The modulus determines whether
-  that prescribed branch composition is attracting, repelling, or neutral.
-- **Analytic-number-theory structure:** every word is represented by the exact
-  numerator map `(3^o*n + b)/2^k`; the number of odd branches controls its multiplier.
-  The engine reports contraction/expansion counts by word length.
-- **Rigorous finite cycle checks:** arbitrary-precision `BigInt` and `BigRational`
-  arithmetic solve the fixed-point equation without floating-point rounding. A
-  candidate is accepted only if it is a positive integer and exact accelerated
-  iteration verifies the full parity itinerary and return to the starting value.
+For each class, the engine derives the exact block map
 
-Run it with:
+```
+n = r + q*2^k
+T^k(n) = T^k(r) + 3^o*q
+```
+
+where `o` is the number of odd branches in the word. It then checks the exact
+difference
+
+```
+T^k(n) - n = (3^o - 2^k)*q + (T^k(r) - r)
+```
+
+This gives a rigorous classwise certificate whenever `3^o < 2^k`: an exact
+threshold `q_min` (and corresponding first positive integer in the class)
+above which every member strictly decreases after a block of `k` accelerated
+steps. Classes without contraction at this depth are reported as
+`not-certified-by-this-block`; that does **not** imply their orbits diverge.
+A finer residue partition or a different block length may yield a descent
+certificate.
+
+Run:
 
 ```sh
 cargo test --manifest-path rust/Cargo.toml --all-targets
-cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --max-period 16
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --depth 16
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --depth 12 --show-classes 20
 ```
 
-The exhaustive search is exponential and currently limits `--max-period` to 24.
-It proves only the finite search statement for the configured word lengths. It cannot
-exclude longer cycles, divergent trajectories, or establish the Collatz conjecture.
-A global proof would require a mathematical argument covering all positive integers
-and all possible orbit lengths; finite computation is evidence, not that argument.
+The engine uses `BigInt` and `BigRational` for exact coefficients, residues,
+multipliers, and thresholds. It verifies every generated class against its
+parity word and checks the affine block formula on additional members of that
+class. Tests also check that the residues form a complete, duplicate-free
+partition at small depths and that reported descent thresholds imply strict
+decrease.
+
+**Proof boundary:** this is a complete finite-depth partition and a collection
+of exact classwise inequalities, not a proof of the Collatz conjecture. A
+global proof still needs to handle every residue class at every required scale
+and show that all positive orbits eventually reach 1; the classes that do not
+contract under one selected block cannot simply be discarded.
