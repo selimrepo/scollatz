@@ -84,7 +84,7 @@ impl ParityClass {
         let gap = &self.modulus - &self.affine.a;
         if gap <= BigInt::zero() { return None; }
         let delta = &self.orbit_at_residue - &self.residue;
-        let mut q_min = if delta <= BigInt::zero() {
+        let mut q_min = if delta < BigInt::zero() {
             BigInt::zero()
         } else {
             delta / &gap + BigInt::one()
@@ -284,6 +284,14 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn strict_descent_threshold_excludes_the_fixed_residue_member() {
+        let class = ParityClass::from_word(&[1, 0]);
+        let (q_min, first_n) = class.eventual_descent_threshold().unwrap();
+        assert_eq!(q_min, BigInt::from(1u8));
+        assert_eq!(first_n, BigInt::from(5u8));
     }
 
     #[test]
