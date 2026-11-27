@@ -132,7 +132,8 @@ fn adaptive_search(word: &mut Vec<u8>, max_depth: usize, node_limit: usize,
     *nodes += 1;
     if *nodes > node_limit { return Err(format!("node budget {node_limit} exceeded; increase --node-limit or reduce --max-depth")); }
     let class = ParityClass::from_word(word);
-    if !verify_word(class.residue.clone(), word) {
+    let representative = if class.residue.is_zero() { class.modulus.clone() } else { class.residue.clone() };
+    if !verify_word(representative, word) {
         return Err(format!("internal parity class mismatch for {}", word_string(word)));
     }
     if !word.is_empty() {
@@ -167,7 +168,8 @@ fn verify_certificate(c: &ProofCertificate, base_limit: u64) -> Result<(), Strin
         let residue = parse_big(&item.residue, "residue")?;
         let modulus = parse_big(&item.modulus, "modulus")?;
         if residue != class.residue || modulus != class.modulus { return Err(format!("residue mismatch for {}", item.word)); }
-        if !verify_word(residue.clone(), &word) { return Err("parity word verification failed".into()); }
+        let representative = if residue.is_zero() { modulus.clone() } else { residue.clone() };
+        if !verify_word(representative, &word) { return Err("parity word verification failed".into()); }
         if item.block_length == 0 || item.block_length > word.len() { return Err("invalid block length".into()); }
         let mut affine = Affine::identity();
         for &bit in &word[..item.block_length] { affine.append(bit); }
@@ -193,7 +195,8 @@ fn verify_certificate(c: &ProofCertificate, base_limit: u64) -> Result<(), Strin
         let class = ParityClass::from_word(&word);
         let residue = parse_big(&item.residue, "unresolved residue")?;
         let modulus = parse_big(&item.modulus, "unresolved modulus")?;
-        if residue != class.residue || modulus != class.modulus || !verify_word(residue.clone(), &word) {
+        let representative = if residue.is_zero() { modulus.clone() } else { residue.clone() };
+        if residue != class.residue || modulus != class.modulus || !verify_word(representative, &word) {
             return Err("unresolved class residue/parity mismatch".into());
         }
         leaves.push((word, residue, modulus));
