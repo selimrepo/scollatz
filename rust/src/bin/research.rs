@@ -303,10 +303,14 @@ fn main() {
     println!("complete_induction_certificate={complete}");
     println!("base_limit={base_limit}");
     if let Some(path)=certificate_path {
-        match serde_json::to_string_pretty(&proof).and_then(|s|fs::write(&path,s).map_err(serde_json::Error::io)) {
-            Ok(())=>println!("certificate_file={path}"),
-            Err(e)=>{eprintln!("certificate_write_failed: {e}");process::exit(6);}
+        let serialized = match serde_json::to_string_pretty(&proof) {
+            Ok(s) => s,
+            Err(e) => { eprintln!("certificate_serialization_failed: {e}"); process::exit(6); }
+        };
+        if let Err(e) = fs::write(&path, serialized) {
+            eprintln!("certificate_write_failed: {e}"); process::exit(6);
         }
+        println!("certificate_file={path}");
     }
     println!("proof_boundary=only a verified complete induction certificate would establish the claim; unresolved classes are never treated as divergent");
 }
