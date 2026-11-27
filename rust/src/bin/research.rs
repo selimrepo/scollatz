@@ -84,11 +84,28 @@ struct DescentCertificate {
     q_min: String,
     first_positive_n: String,
 }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+struct GrowthCertificate {
+    block_length: usize,
+    odd_steps: usize,
+    slope: String,
+    q_min: String,
+    first_positive_n: String,
+    block_offset: String,
+}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct UnresolvedClass {
     word: String,
     residue: String,
     modulus: String,
+    growth_witnesses: Vec<GrowthCertificate>,
+    neutral_blocks: Vec<usize>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct PeriodicOrbitWitness {
+    word: String,
+    value: String,
+    block_length: usize,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct ProofCertificate {
@@ -97,6 +114,7 @@ struct ProofCertificate {
     visited_nodes: usize,
     descent_classes: Vec<DescentCertificate>,
     unresolved_classes: Vec<UnresolvedClass>,
+    periodic_orbits: Vec<PeriodicOrbitWitness>,
     base_verified_up_to: Option<String>,
     complete_induction_certificate: bool,
 }
@@ -111,9 +129,10 @@ fn find_descent(word: &[u8], residue: &BigInt, depth: usize) -> Option<DescentCe
         let offset = affine.apply(residue);
         let slope = affine.a * (BigInt::one() << (depth - j));
         let gap = &modulus - &slope;
-        if gap <= BigInt::zero() { continue; }
         let delta = &offset - residue;
+        if gap < BigInt::zero() || (gap.is_zero() && delta >= BigInt::zero()) { continue; }
         let mut q_min = if delta < BigInt::zero() { BigInt::zero() }
+            else if gap.is_zero() { BigInt::zero() }
             else { delta / &gap + BigInt::one() };
         if residue.is_zero() && q_min.is_zero() { q_min = BigInt::one(); }
         let first = residue + &q_min * &modulus;
@@ -126,9 +145,59 @@ fn find_descent(word: &[u8], residue: &BigInt, depth: usize) -> Option<DescentCe
     None
 }
 
+fn growth_analysis(word: &[u8], residue: &BigInt, depth: usize) -> (Vec<GrowthCertificate>, Vec<usize>) {
+    let modulus = BigInt::one() << depth;
+    let mut growth = Vec::new();
+    let mut neutral = Vec::new();
+    for j in 1..=depth {
+        let mut affine = Affine::identity();
+        for &bit in &word[..j] { affine.append(bit); }
+        let offset = affine.apply(residue);
+        let slope = &affine.a * (BigInt::one() << (depth - j));
+        let delta = &offset - residue;
+        if slope == modulus {
+            if delta.is_zero() { neutral.push(j); }
+            else if delta > BigInt::zero() {
+                let q = if residue.is_zero() { BigInt::one() } else { BigInt::zero() };
+                growth.push(GrowthCertificate {
+                    block_length: j, odd_steps: affine.odd_count, slope: slope.to_string(),
+                    q_min: q.to_string(), first_positive_n: (residue + &q * &modulus).to_string(),
+                    block_offset: offset.to_string(),
+                });
+            }
+        } else if slope > modulus {
+            let gap = &slope - &modulus;
+            let mut q = if delta > BigInt::zero() { BigInt::zero() }
+                else if delta.is_zero() { BigInt::one() }
+                else { (-&delta) / &gap + BigInt::one() };
+            if residue.is_zero() && q.is_zero() { q = BigInt::one(); }
+            growth.push(GrowthCertificate {
+                block_length: j, odd_steps: affine.odd_count, slope: slope.to_string(),
+                q_min: q.to_string(), first_positive_n: (residue + &q * &modulus).to_string(),
+                block_offset: offset.to_string(),
+            });
+        }
+    }
+    (growth, neutral)
+}
+
+fn periodic_witness(word: &[u8]) -> Option<PeriodicOrbitWitness> {
+    if word.is_empty() { return None; }
+    let mut affine = Affine::identity();
+    for &bit in word { affine.append(bit); }
+    let denominator = (BigInt::one() << word.len()) - &affine.a;
+    if denominator.is_zero() { return None; }
+    let fixed = BigRational::new(affine.b.clone(), denominator);
+    if !fixed.is_integer() { return None; }
+    let n = fixed.to_integer();
+    if n <= BigInt::zero() || !verify_word(n.clone(), word) || run_steps(&n, word.len()) != n { return None; }
+    Some(PeriodicOrbitWitness { word: word_string(word), value: n.to_string(), block_length: word.len() })
+}
+
 fn adaptive_search(word: &mut Vec<u8>, max_depth: usize, node_limit: usize,
                    nodes: &mut usize, certs: &mut Vec<DescentCertificate>,
-                   unresolved: &mut Vec<UnresolvedClass>) -> Result<(), String> {
+                   unresolved: &mut Vec<UnresolvedClass>,
+                   periodic: &mut Vec<PeriodicOrbitWitness>) -> Result<(), String> {
     *nodes += 1;
     if *nodes > node_limit { return Err(format!("node budget {node_limit} exceeded; increase --node-limit or reduce --max-depth")); }
     let class = ParityClass::from_word(word);
@@ -137,18 +206,27 @@ fn adaptive_search(word: &mut Vec<u8>, max_depth: usize, node_limit: usize,
         return Err(format!("internal parity class mismatch for {}", word_string(word)));
     }
     if !word.is_empty() {
+        if let Some(cycle) = periodic_witness(word) {
+            if !periodic.iter().any(|x| x.value == cycle.value && x.block_length == cycle.block_length) {
+                periodic.push(cycle);
+            }
+        }
         if let Some(cert) = find_descent(word, &class.residue, word.len()) {
             certs.push(cert);
             return Ok(());
         }
     }
     if word.len() == max_depth {
-        unresolved.push(UnresolvedClass { word: word_string(word), residue: class.residue.to_string(), modulus: class.modulus.to_string() });
+        let (growth_witnesses, neutral_blocks) = growth_analysis(word, &class.residue, word.len());
+        unresolved.push(UnresolvedClass {
+            word: word_string(word), residue: class.residue.to_string(), modulus: class.modulus.to_string(),
+            growth_witnesses, neutral_blocks,
+        });
         return Ok(());
     }
     for bit in [0u8, 1u8] {
         word.push(bit);
-        adaptive_search(word, max_depth, node_limit, nodes, certs, unresolved)?;
+        adaptive_search(word, max_depth, node_limit, nodes, certs, unresolved, periodic)?;
         word.pop();
     }
     Ok(())
@@ -199,7 +277,29 @@ fn verify_certificate(c: &ProofCertificate, base_limit: u64) -> Result<(), Strin
         if residue != class.residue || modulus != class.modulus || !verify_word(representative, &word) {
             return Err("unresolved class residue/parity mismatch".into());
         }
+        let (expected_growth, expected_neutral) = growth_analysis(&word, &residue, word.len());
+        if item.growth_witnesses != expected_growth || item.neutral_blocks != expected_neutral {
+            return Err(format!("growth/neutral diagnostics mismatch for {}", item.word));
+        }
+        for witness in &item.growth_witnesses {
+            let q = parse_big(&witness.q_min, "growth q_min")?;
+            let n = parse_big(&witness.first_positive_n, "growth first_positive_n")?;
+            let offset = parse_big(&witness.block_offset, "growth block_offset")?;
+            let slope = parse_big(&witness.slope, "growth slope")?;
+            if n != &residue + &q * &modulus { return Err("growth threshold identity mismatch".into()); }
+            if run_steps(&n, witness.block_length) <= n { return Err("growth witness is not strictly increasing at threshold".into()); }
+            let expected = &offset + &slope * &q;
+            if run_steps(&n, witness.block_length) != expected { return Err("growth affine formula mismatch".into()); }
+        }
         leaves.push((word, residue, modulus));
+    }
+    for cycle in &c.periodic_orbits {
+        let word = parse_word(&cycle.word)?;
+        let n = parse_big(&cycle.value, "periodic orbit value")?;
+        if word.len() != cycle.block_length || n <= BigInt::zero()
+            || !verify_word(n.clone(), &word) || run_steps(&n, word.len()) != n {
+            return Err(format!("invalid periodic orbit witness for {}", cycle.word));
+        }
     }
     // Prefix-free leaves with Kraft sum 1 form a complete partition of all
     // integers by their parity cylinders through max_depth.
@@ -280,8 +380,8 @@ fn main() {
         return;
     }
 
-    let mut nodes=0usize; let mut certs=Vec::new(); let mut unresolved=Vec::new();
-    if let Err(e)=adaptive_search(&mut Vec::new(),max_depth,node_limit,&mut nodes,&mut certs,&mut unresolved) {
+    let mut nodes=0usize; let mut certs=Vec::new(); let mut unresolved=Vec::new(); let mut periodic=Vec::new();
+    if let Err(e)=adaptive_search(&mut Vec::new(),max_depth,node_limit,&mut nodes,&mut certs,&mut unresolved,&mut periodic) {
         eprintln!("search_incomplete: {e}"); process::exit(5);
     }
     let all_certified=unresolved.is_empty();
@@ -300,13 +400,16 @@ fn main() {
     let complete=all_certified && base_verified.is_some();
     let proof=ProofCertificate {
         format:"scollatz-proof-certificate-v1".into(),max_depth,visited_nodes:nodes,
-        descent_classes:certs,unresolved_classes:unresolved,
+        descent_classes:certs,unresolved_classes:unresolved,periodic_orbits:periodic,
         base_verified_up_to:base_verified,complete_induction_certificate:complete,
     };
     println!("system=adaptive parity-class refinement + multi-block descent + induction-base verification");
     println!("max_depth={max_depth} visited_nodes={nodes}");
     println!("descent_certified_classes={}",proof.descent_classes.len());
     println!("unresolved_max_depth_classes={}",proof.unresolved_classes.len());
+    println!("exact_periodic_orbit_witnesses={}",proof.periodic_orbits.len());
+    println!("unresolved_growth_witnesses={}",proof.unresolved_classes.iter().map(|x|x.growth_witnesses.len()).sum::<usize>());
+    println!("neutral_block_witnesses={}",proof.unresolved_classes.iter().map(|x|x.neutral_blocks.len()).sum::<usize>());
     println!("complete_induction_certificate={complete}");
     println!("base_limit={base_limit}");
     if let Some(path)=certificate_path {
@@ -346,10 +449,10 @@ mod tests {
         }
     }
     #[test] fn adaptive_partition_is_prefix_free_and_complete() {
-        let mut nodes=0;let mut certs=Vec::new();let mut unresolved=Vec::new();
-        adaptive_search(&mut Vec::new(),7,10000,&mut nodes,&mut certs,&mut unresolved).unwrap();
+        let mut nodes=0;let mut certs=Vec::new();let mut unresolved=Vec::new();let mut periodic=Vec::new();
+        adaptive_search(&mut Vec::new(),7,10000,&mut nodes,&mut certs,&mut unresolved,&mut periodic).unwrap();
         let proof=ProofCertificate{format:"scollatz-proof-certificate-v1".into(),max_depth:7,visited_nodes:nodes,
-            descent_classes:certs,unresolved_classes:unresolved,base_verified_up_to:None,complete_induction_certificate:false};
+            descent_classes:certs,unresolved_classes:unresolved,periodic_orbits:periodic,base_verified_up_to:None,complete_induction_certificate:false};
         verify_certificate(&proof,0).unwrap();
     }
     #[test] fn one_two_cycle_is_not_misreported_as_descent_for_10_prefix() {
