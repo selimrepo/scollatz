@@ -76,3 +76,34 @@ symbolic parity itinerary; it does not define a unique global complex Collatz ma
 does not prove the Collatz conjecture. Its purpose is to investigate branch
 compositions, multipliers, fixed points, and candidate periodic itineraries without
 misrepresenting numerical evidence as a proof.
+
+
+## Advanced mathematical research engine
+
+The Rust workspace includes `scollatz-research`, which complements the floating-point
+complex branch explorer with exact arithmetic:
+
+- **Complex dynamics / affine dynamics:** each fixed symbolic itinerary is an affine
+  holomorphic map on ℂ. Its multiplier is exactly `3^o / 2^k` and its fixed point
+  is represented as a rational number embedded in ℂ. The modulus determines whether
+  that prescribed branch composition is attracting, repelling, or neutral.
+- **Analytic-number-theory structure:** every word is represented by the exact
+  numerator map `(3^o*n + b)/2^k`; the number of odd branches controls its multiplier.
+  The engine reports contraction/expansion counts by word length.
+- **Rigorous finite cycle checks:** arbitrary-precision `BigInt` and `BigRational`
+  arithmetic solve the fixed-point equation without floating-point rounding. A
+  candidate is accepted only if it is a positive integer and exact accelerated
+  iteration verifies the full parity itinerary and return to the starting value.
+
+Run it with:
+
+```sh
+cargo test --manifest-path rust/Cargo.toml --all-targets
+cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --max-period 16
+```
+
+The exhaustive search is exponential and currently limits `--max-period` to 24.
+It proves only the finite search statement for the configured word lengths. It cannot
+exclude longer cycles, divergent trajectories, or establish the Collatz conjecture.
+A global proof would require a mathematical argument covering all positive integers
+and all possible orbit lengths; finite computation is evidence, not that argument.
