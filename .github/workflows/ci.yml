@@ -47,6 +47,10 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Test Rust implementation (including OpenCL)
         run: cargo test --manifest-path rust/Cargo.toml --all-targets
+      - name: Exact complex and number-theory research engine
+        run: cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-research -- --max-period 12
+      - name: Complex branch dynamics smoke test
+        run: cargo run --release --manifest-path rust/Cargo.toml --bin scollatz-complex -- --word 110 --real 3 --imag 1 --repeats 4
       - name: Rust scanner CPU smoke test
         run: cargo run --release --manifest-path rust/Cargo.toml --bin scollatz -- --start 1 --end 10000 --backend cpu --threads 2
       - name: Rust scanner OpenCL smoke test
