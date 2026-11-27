@@ -329,7 +329,8 @@ mod tests {
         for d in 1..=9 { for mask in 0..(1u64<<d) {
             let word=(0..d).map(|i|((mask>>i)&1) as u8).collect::<Vec<_>>();
             let c=ParityClass::from_word(&word);
-            assert!(verify_word(c.residue.clone(),&word));
+            let representative=if c.residue.is_zero(){c.modulus.clone()}else{c.residue.clone()};
+            assert!(verify_word(representative,&word));
         }}
     }
     #[test] fn multiblock_certificate_is_exact_on_class() {
